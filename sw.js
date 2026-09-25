@@ -1,5 +1,5 @@
 /* Service Worker - Simulador de Charlieplexing */
-const CACHE_NAME = 'charlieplexing-v2';
+const CACHE_NAME = 'charlieplexing-v3';
 const ASSETS = [
     './',
     './index.html',
