@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Charlieplexing</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a2a6c, #2c3e50);
+            color: #ecf0f1;
+            line-height: 1.6;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 1400px;
+            background-color: rgba(30, 40, 52, 0.9);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #3498db;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            color: #3498db;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        h2 {
+            font-size: 1.8rem;
+            color: #2ecc71;
+            margin: 20px 0 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .control-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+        }
+        
+        .control-group {
+            background: rgba(41, 52, 64, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #3498db;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 12px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: #2c3e50;
+            border-radius: 10px;
+            outline: none;
+            margin: 15px 0;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background: #3498db;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(52, 152, 219, 0.7);
+        }
+        
+        .color-select-container {
+            position: relative;
+        }
+        
+        select {
+            width: 100%;
+            padding: 12px 45px 12px 15px;
+            border-radius: 5px;
+            background: #2c3e50;
+            color: #ecf0f1;
+            border: 1px solid #34495e;
+            font-size: 1rem;
+            margin-top: 10px;
+            appearance: none;
+            cursor: pointer;
+            background-image: linear-gradient(45deg, transparent 50%, #ccc 50%),
+                              linear-gradient(135deg, #ccc 50%, transparent 50%);
+            background-position: calc(100% - 20px) center, calc(100% - 15px) center;
+            background-size: 5px 5px, 5px 5px;
+            background-repeat: no-repeat;
+        }
+        
+        .color-option {
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            position: relative;
+        }
+        
+        .color-preview {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 12px;
+            display: inline-block;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
+        }
+        
+        .range-values {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+            font-size: 0.9rem;
+        }
+        
+        .value-display {
+            background: #2c3e50;
+            padding: 8px 15px;
+            border-radius: 5px;
+            text-align: center;
+            font-weight: bold;
+            color: #2ecc71;
+            margin-top: 10px;
+        }
+        
+        .panel-container {
+            background: rgba(41, 52, 64, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            width: 100%;
+        }
+        
+        .led-panel {
+            background-color: #1a2432;
+            margin: 0 auto;
+            border-radius: 8px;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+            position: relative;
+            overflow: hidden;
+            border: 2px solid #34495e;
+            width: 100%;
+            min-height: 300px;
+        }
+        
+        .led {
+            position: absolute;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            background-color: #333;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+            opacity: 0.8;
+        }
+        
+        .led.on {
+            box-shadow: 0 0 20px 8px currentColor;
+            opacity: 1;
+            transform: scale(1.1);
+            z-index: 10;
+        }
+        
+        .distributing {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+        
+        .status {
+            text-align: center;
+            margin-top: 20px;
+            font-weight: bold;
+            padding: 12px;
+            border-radius: 8px;
+            background: #2c3e50;
+            color: #ecf0f1;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        .running {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .stopped {
+            background: #c0392b;
+            color: white;
+        }
+        
+        button {
+            background: linear-gradient(to right, #3498db, #2c3e50);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.1rem;
+            display: block;
+            width: 100%;
+            margin: 20px 0;
+            transition: all 0.3s;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+            background: linear-gradient(to right, #2980b9, #243342);
+        }
+        
+        button:active {
+            transform: translateY(1px);
+        }
+        
+        .distribute-btn {
+            background: linear-gradient(to right, #9b59b6, #8e44ad);
+        }
+        
+        .code-container {
+            background: rgba(41, 52, 64, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            margin-bottom: 20px;
+            width: 100%;
+        }
+        
+        .code-header {
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .toggle-icon {
+            font-size: 1.5rem;
+            transition: transform 0.3s ease;
+        }
+        
+        .rotated {
+            transform: rotate(180deg);
+        }
+        
+        pre {
+            background-color: #1a2432;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            color: #ecf0f1;
+            white-space: pre-wrap;
+            font-family: 'Courier New', Courier, monospace;
+            line-height: 1.4;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+            max-height: 500px;
+            overflow-y: auto;
+            margin-top: 15px;
+            display: none;
+        }
+        
+        .code-visible pre {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .code-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+            display: none;
+        }
+        
+        .code-visible .code-buttons {
+            display: flex;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .code-buttons button {
+            margin: 0;
+            flex: 1;
+        }
+        
+        .copy-btn {
+            background: linear-gradient(to right, #2ecc71, #27ae60);
+        }
+        
+        .download-btn {
+            background: linear-gradient(to right, #e74c3c, #c0392b);
+        }
+        
+        .pulse {
+            animation: pulseEffect 0.5s;
+        }
+        
+        @keyframes pulseEffect {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes placeLed {
+            0% { transform: scale(0); opacity: 0; }
+            70% { transform: scale(1.2); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 0.8; }
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            h2 {
+                font-size: 1.5rem;
+            }
+            
+            .control-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .code-buttons {
+                flex-direction: column;
+            }
+            
+            .control-group {
+                padding: 15px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            h2 {
+                font-size: 1.3rem;
+            }
+            
+            button {
+                padding: 12px 20px;
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Simulador de Charlieplexing para Arduino</h1>
+            <p>Control de ledes con técnica de charlieplexing</p>
+        </header>
+        
+        <div class="controls">
+            <div class="control-row">
+                <div class="control-group">
+                    <label for="pinCount">Número de pines:</label>
+                    <input type="range" id="pinCount" min="2" max="9" step="1" value="4">
+                    <div class="range-values">
+                        <span>2</span>
+                        <span>3</span>
+                        <span>4</span>
+                        <span>5</span>
+                        <span>6</span>
+                        <span>7</span>
+                        <span>8</span>
+                        <span>9</span>
+                    </div>
+                    <div id="pinCountValue" class="value-display">4 pines (12 ledes posibles)</div>
+                </div>
+                
+                <div class="control-group">
+                    <label for="frequency">Frecuencia de encendido (ms):</label>
+                    <input type="range" id="frequency" min="10" max="1000" step="10" value="200">
+                    <div class="range-values">
+                        <span>10</span>
+                        <span>250</span>
+                        <span>500</span>
+                        <span>750</span>
+                        <span>1000</span>
+                    </div>
+                    <div id="frequencyValue" class="value-display">200 ms</div>
+                </div>
+            </div>
+            
+            <div class="control-row">
+                <div class="control-group">
+                    <label for="ledColor">Color de los ledes:</label>
+                    <div class="color-select-container">
+                        <select id="ledColor">
+                            <option value="#FFFFFF" selected style="background-color: #FFFFFF; color: #000000;">Blanco</option>
+                            <option value="#FF0000" style="background-color: #FF0000; color: white;">Rojo</option>
+                            <option value="#00FF00" style="background-color: #00FF00; color: #000000;">Verde</option>
+                            <option value="#FFFF00" style="background-color: #FFFF00; color: #000000;">Amarillo</option>
+                            <option value="#FFA500" style="background-color: #FFA500; color: #000000;">Naranja</option>
+                            <option value="#0000FF" style="background-color: #0000FF; color: white;">Azul</option>
+                            <option value="#800080" style="background-color: #800080; color: white;">Violeta</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label>Distribuir ledes:</label>
+                    <button id="distributeLeds" class="distribute-btn">Redistribuir ledes</button>
+                    <div class="value-display">Reorganiza los ledes en el panel</div>
+                </div>
+            </div>
+        </div>
+        
+        <button id="toggleSimulation">Iniciar Simulación</button>
+        
+        <div class="panel-container">
+            <h2>Panel de ledes</h2>
+            <div id="ledPanel" class="led-panel"></div>
+            <div id="status" class="status stopped">Simulación detenida</div>
+        </div>
+        
+        <div class="code-container" id="codeContainer">
+            <div class="code-header">
+                <h2>Código Arduino</h2>
+                <span class="toggle-icon">▼</span>
+            </div>
+            <pre id="arduinoCode"></pre>
+            <div class="code-buttons">
+                <button id="copyCode" class="copy-btn">Copiar Código</button>
+                <button id="downloadCode" class="download-btn">Descargar .ino</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const pinCountInput = document.getElementById('pinCount');
+            const pinCountValue = document.getElementById('pinCountValue');
+            const frequencyInput = document.getElementById('frequency');
+            const frequencyValue = document.getElementById('frequencyValue');
+            const ledColorInput = document.getElementById('ledColor');
+            const toggleButton = document.getElementById('toggleSimulation');
+            const distributeButton = document.getElementById('distributeLeds');
+            const ledPanel = document.getElementById('ledPanel');
+            const statusDiv = document.getElementById('status');
+            const arduinoCode = document.getElementById('arduinoCode');
+            const codeHeader = document.querySelector('.code-header');
+            const toggleIcon = document.querySelector('.toggle-icon');
+            const codeContainer = document.getElementById('codeContainer');
+            const copyButton = document.getElementById('copyCode');
+            const downloadButton = document.getElementById('downloadCode');
+            
+            let simulationInterval = null;
+            let isRunning = false;
+            let pins = 4;
+            let frequency = 200;
+            let ledColor = '#FFFFFF'; // Blanco por defecto
+            let leds = [];
+            let isDistributing = false;
+            
+            // Actualizar valores iniciales
+            updatePinCount();
+            updateFrequency();
+            generateArduinoCode();
+            createLedPanel();
+            updateSelectStyle();
+            
+            // Event listeners
+            pinCountInput.addEventListener('input', function() {
+                updatePinCount();
+                generateArduinoCode();
+                createLedPanel();
+                if (isRunning) {
+                    restartSimulation();
+                }
+            });
+            
+            frequencyInput.addEventListener('input', function() {
+                updateFrequency();
+                if (isRunning) {
+                    restartSimulation();
+                }
+            });
+            
+            ledColorInput.addEventListener('change', function() {
+                ledColor = ledColorInput.value;
+                updateLedColors();
+                updateSelectStyle();
+            });
+            
+            toggleButton.addEventListener('click', function() {
+                if (isRunning) {
+                    stopSimulation();
+                } else {
+                    startSimulation();
+                }
+            });
+            
+            distributeButton.addEventListener('click', function() {
+                if (!isDistributing) {
+                    distributeLedsWithAnimation();
+                }
+            });
+            
+            codeHeader.addEventListener('click', function() {
+                codeContainer.classList.toggle('code-visible');
+                toggleIcon.classList.toggle('rotated');
+            });
+            
+            copyButton.addEventListener('click', function() {
+                const textArea = document.createElement('textarea');
+                textArea.value = arduinoCode.textContent;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                // Efecto visual de copiado
+                const originalText = copyButton.textContent;
+                copyButton.textContent = '¡Código Copiado!';
+                copyButton.style.background = 'linear-gradient(to right, #2ecc71, #2ecc71)';
+                
+                setTimeout(() => {
+                    copyButton.textContent = originalText;
+                    copyButton.style.background = 'linear-gradient(to right, #2ecc71, #27ae60)';
+                }, 2000);
+            });
+            
+            downloadButton.addEventListener('click', function() {
+                const codeContent = arduinoCode.textContent;
+                const blob = new Blob([codeContent], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `charlieplexing_${pins}pines_${frequency}ms.ino`;
+                document.body.appendChild(a);
+                a.click();
+                
+                // Limpiar
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+                
+                // Efecto visual de descarga
+                const originalText = downloadButton.textContent;
+                downloadButton.textContent = '¡Descargado!';
+                downloadButton.style.background = 'linear-gradient(to right, #e74c3c, #e74c3c)';
+                
+                setTimeout(() => {
+                    downloadButton.textContent = originalText;
+                    downloadButton.style.background = 'linear-gradient(to right, #e74c3c, #c0392b)';
+                }, 2000);
+            });
+            
+            function updatePinCount() {
+                pins = parseInt(pinCountInput.value);
+                const ledCount = pins * (pins - 1);
+                pinCountValue.textContent = `${pins} pines (${ledCount} ledes posibles)`;
+            }
+            
+            function updateFrequency() {
+                frequency = parseInt(frequencyInput.value);
+                frequencyValue.textContent = `${frequency} ms`;
+            }
+            
+            function updateLedColors() {
+                leds.forEach(led => {
+                    // Para ledes apagados, usamos una versión más oscura
+                    const rgb = hexToRgb(ledColor);
+                    const darkColor = `rgb(${Math.round(rgb.r * 0.3)}, ${Math.round(rgb.g * 0.3)}, ${Math.round(rgb.b * 0.3)})`;
+                    
+                    if (!led.classList.contains('on')) {
+                        led.style.backgroundColor = darkColor;
+                    } else {
+                        led.style.backgroundColor = ledColor;
+                    }
+                });
+            }
+            
+            function updateSelectStyle() {
+                // Actualizar el estilo del select para mostrar el color seleccionado
+                const selectedOption = ledColorInput.options[ledColorInput.selectedIndex];
+                ledColorInput.style.backgroundColor = ledColor;
+                
+                // Ajustar el color del texto para mejor contraste
+                const rgb = hexToRgb(ledColor);
+                const brightness = Math.round(((rgb.r * 299) + (rgb.g * 587) + (rgb.b * 114)) / 1000);
+                ledColorInput.style.color = brightness > 125 ? 'black' : 'white';
+            }
+            
+            function hexToRgb(hex) {
+                // Convertir color HEX a RGB
+                const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                return result ? {
+                    r: parseInt(result[1], 16),
+                    g: parseInt(result[2], 16),
+                    b: parseInt(result[3], 16)
+                } : {r: 255, g: 255, b: 255};
+            }
+            
+            function createLedPanel() {
+                // Limpiar panel existente
+                ledPanel.innerHTML = '';
+                leds = [];
+                
+                // Calcular dimensiones
+                const panelWidth = ledPanel.clientWidth;
+                const panelHeight = Math.max(panelWidth * 0.5, 300); // Mínimo 50% del ancho o 300px
+                const ledCount = pins * (pins - 1);
+                const ledSize = Math.max(10, Math.min(30, panelWidth / (pins * 3)));
+                
+                ledPanel.style.height = `${panelHeight}px`;
+                
+                // Crear ledes sin solapamiento
+                const positions = [];
+                
+                for (let i = 0; i < ledCount; i++) {
+                    const led = document.createElement('div');
+                    led.className = 'led';
+                    led.style.width = `${ledSize}px`;
+                    led.style.height = `${ledSize}px`;
+                    
+                    // Versión oscura del color para ledes apagados
+                    const rgb = hexToRgb(ledColor);
+                    const darkColor = `rgb(${Math.round(rgb.r * 0.3)}, ${Math.round(rgb.g * 0.3)}, ${Math.round(rgb.b * 0.3)})`;
+                    led.style.backgroundColor = darkColor;
+                    
+                    // Intentar colocar el LED sin solapamiento y dentro de los límites
+                    let validPosition = false;
+                    let attempts = 0;
+                    let x, y;
+                    
+                    while (!validPosition && attempts < 500) {
+                        attempts++;
+                        
+                        // Posición aleatoria dentro de los límites del panel
+                        x = Math.random() * (panelWidth - ledSize);
+                        y = Math.random() * (panelHeight - ledSize);
+                        
+                        // Verificar que esté dentro de los límites
+                        if (x >= 0 && x <= panelWidth - ledSize && 
+                            y >= 0 && y <= panelHeight - ledSize) {
+                            
+                            // Verificar que no se solape con otros ledes
+                            validPosition = true;
+                            for (const pos of positions) {
+                                const dx = pos.x - x;
+                                const dy = pos.y - y;
+                                const distance = Math.sqrt(dx * dx + dy * dy);
+                                
+                                if (distance < ledSize * 2) {
+                                    validPosition = false;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Si no se encontró posición válida después de muchos intentos, 
+                    // colocar en una posición que no se solape demasiado
+                    if (!validPosition) {
+                        // Buscar la mejor posición disponible
+                        let bestPosition = {x: 0, y: 0};
+                        let minDistance = 0;
+                        
+                        for (let tryY = ledSize; tryY < panelHeight - ledSize; tryY += ledSize) {
+                            for (let tryX = ledSize; tryX < panelWidth - ledSize; tryX += ledSize) {
+                                let currentMinDistance = Infinity;
+                                
+                                for (const pos of positions) {
+                                    const dx = pos.x - tryX;
+                                    const dy = pos.y - tryY;
+                                    const distance = Math.sqrt(dx * dx + dy * dy);
+                                    currentMinDistance = Math.min(currentMinDistance, distance);
+                                }
+                                
+                                if (currentMinDistance > minDistance) {
+                                    minDistance = currentMinDistance;
+                                    bestPosition = {x: tryX, y: tryY};
+                                }
+                            }
+                        }
+                        
+                        x = bestPosition.x;
+                        y = bestPosition.y;
+                    }
+                    
+                    // Asegurarse de que las coordenadas estén dentro de los límites
+                    x = Math.max(0, Math.min(panelWidth - ledSize, x));
+                    y = Math.max(0, Math.min(panelHeight - ledSize, y));
+                    
+                    led.style.left = `${x}px`;
+                    led.style.top = `${y}px`;
+                    
+                    positions.push({x, y});
+                    ledPanel.appendChild(led);
+                    leds.push(led);
+                }
+            }
+            
+            function distributeLedsWithAnimation() {
+                if (isDistributing) return;
+                
+                isDistributing = true;
+                ledPanel.classList.add('distributing');
+                statusDiv.textContent = 'Distribuyendo ledes...';
+                
+                // Limpiar panel existente
+                ledPanel.innerHTML = '';
+                leds = [];
+                
+                // Calcular dimensiones
+                const panelWidth = ledPanel.clientWidth;
+                const panelHeight = Math.max(panelWidth * 0.5, 300);
+                const ledCount = pins * (pins - 1);
+                const ledSize = Math.max(10, Math.min(30, panelWidth / (pins * 3)));
+                
+                ledPanel.style.height = `${panelHeight}px`;
+                
+                // Crear ledes sin solapamiento
+                const positions = [];
+                let index = 0;
+                
+                function placeNextLed() {
+                    if (index >= ledCount) {
+                        // Animación completada
+                        isDistributing = false;
+                        ledPanel.classList.remove('distributing');
+                        if (isRunning) {
+                            statusDiv.textContent = `Simulación en ejecución - Encendiendo cada ${frequency} ms`;
+                            statusDiv.className = 'status running';
+                        } else {
+                            statusDiv.textContent = 'Simulación detenida';
+                            statusDiv.className = 'status stopped';
+                        }
+                        return;
+                    }
+                    
+                    const led = document.createElement('div');
+                    led.className = 'led';
+                    led.style.width = `${ledSize}px`;
+                    led.style.height = `${ledSize}px`;
+                    
+                    // Versión oscura del color para ledes apagados
+                    const rgb = hexToRgb(ledColor);
+                    const darkColor = `rgb(${Math.round(rgb.r * 0.3)}, ${Math.round(rgb.g * 0.3)}, ${Math.round(rgb.b * 0.3)})`;
+                    led.style.backgroundColor = darkColor;
+                    
+                    // Intentar colocar el LED sin solapamiento y dentro de los límites
+                    let validPosition = false;
+                    let attempts = 0;
+                    let x, y;
+                    
+                    while (!validPosition && attempts < 100) {
+                        attempts++;
+                        
+                        // Posición aleatoria dentro de los límites del panel
+                        x = Math.random() * (panelWidth - ledSize);
+                        y = Math.random() * (panelHeight - ledSize);
+                        
+                        // Verificar que esté dentro de los límites
+                        if (x >= 0 && x <= panelWidth - ledSize && 
+                            y >= 0 && y <= panelHeight - ledSize) {
+                            
+                            // Verificar que no se solape con otros ledes
+                            validPosition = true;
+                            for (const pos of positions) {
+                                const dx = pos.x - x;
+                                const dy = pos.y - y;
+                                const distance = Math.sqrt(dx * dx + dy * dy);
+                                
+                                if (distance < ledSize * 2) {
+                                    validPosition = false;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Si no se encontró posición válida después de muchos intentos, 
+                    // colocar en una posición que no se solape demasiado
+                    if (!validPosition) {
+                        // Buscar la mejor posición disponible
+                        let bestPosition = {x: 0, y: 0};
+                        let minDistance = 0;
+                        
+                        for (let tryY = ledSize; tryY < panelHeight - ledSize; tryY += ledSize) {
+                            for (let tryX = ledSize; tryX < panelWidth - ledSize; tryX += ledSize) {
+                                let currentMinDistance = Infinity;
+                                
+                                for (const pos of positions) {
+                                    const dx = pos.x - tryX;
+                                    const dy = pos.y - tryY;
+                                    const distance = Math.sqrt(dx * dx + dy * dy);
+                                    currentMinDistance = Math.min(currentMinDistance, distance);
+                                }
+                                
+                                if (currentMinDistance > minDistance) {
+                                    minDistance = currentMinDistance;
+                                    bestPosition = {x: tryX, y: tryY};
+                                }
+                            }
+                        }
+                        
+                        x = bestPosition.x;
+                        y = bestPosition.y;
+                    }
+                    
+                    // Asegurarse de que las coordenadas estén dentro de los límites
+                    x = Math.max(0, Math.min(panelWidth - ledSize, x));
+                    y = Math.max(0, Math.min(panelHeight - ledSize, y));
+                    
+                    led.style.left = `${x}px`;
+                    led.style.top = `${y}px`;
+                    
+                    // Añadir animación
+                    led.style.animation = 'placeLed 0.5s forwards';
+                    
+                    positions.push({x, y});
+                    ledPanel.appendChild(led);
+                    leds.push(led);
+                    
+                    index++;
+                    setTimeout(placeNextLed, 100);
+                }
+                
+                // Iniciar la animación
+                placeNextLed();
+            }
+            
+            function startSimulation() {
+                if (isDistributing) return;
+                
+                isRunning = true;
+                toggleButton.textContent = 'Detener Simulación';
+                statusDiv.textContent = `Simulación en ejecución - Encendiendo cada ${frequency} ms`;
+                statusDiv.className = 'status running';
+                
+                // Efecto visual al iniciar
+                ledPanel.classList.add('pulse');
+                setTimeout(() => ledPanel.classList.remove('pulse'), 500);
+                
+                simulationInterval = setInterval(function() {
+                    // Apagar todos los ledes
+                    leds.forEach(led => {
+                        led.classList.remove('on');
+                        // Versión oscura del color para ledes apagados
+                        const rgb = hexToRgb(ledColor);
+                        const darkColor = `rgb(${Math.round(rgb.r * 0.3)}, ${Math.round(rgb.g * 0.3)}, ${Math.round(rgb.b * 0.3)})`;
+                        led.style.backgroundColor = darkColor;
+                    });
+                    
+                    // Encender un led aleatorio
+                    const randomIndex = Math.floor(Math.random() * leds.length);
+                    const randomLed = leds[randomIndex];
+                    randomLed.classList.add('on');
+                    randomLed.style.backgroundColor = ledColor;
+                    randomLed.style.color = ledColor;
+                    
+                }, frequency);
+            }
+            
+            function stopSimulation() {
+                isRunning = false;
+                toggleButton.textContent = 'Iniciar Simulación';
+                statusDiv.textContent = 'Simulación detenida';
+                statusDiv.className = 'status stopped';
+                
+                clearInterval(simulationInterval);
+                
+                // Apagar todos los ledes
+                leds.forEach(led => {
+                    led.classList.remove('on');
+                    // Versión oscura del color para ledes apagados
+                    const rgb = hexToRgb(ledColor);
+                    const darkColor = `rgb(${Math.round(rgb.r * 0.3)}, ${Math.round(rgb.g * 0.3)}, ${Math.round(rgb.b * 0.3)})`;
+                    led.style.backgroundColor = darkColor;
+                });
+            }
+            
+            function restartSimulation() {
+                stopSimulation();
+                startSimulation();
+            }
+            
+            function generateArduinoCode() {
+                const ledCount = pins * (pins - 1);
+                let code = `// Código Arduino para controlar ${ledCount} ledes con ${pins} pines usando Charlieplexing
+// Frecuencia de cambio: ${frequency} ms
+
+// Definir pines utilizados
+const int numPins = ${pins};
+int pins[] = {`;
+
+                // Generar array de pines
+                for (let i = 0; i < pins; i++) {
+                    code += `${i + 2}`;
+                    if (i < pins - 1) code += ', ';
+                }
+                
+                code += `};
+
+void setup() {
+  // Inicializar todos los pines
+  for (int i = 0; i < numPins; i++) {
+    pinMode(pins[i], INPUT);
+  }
+  randomSeed(analogRead(0)); // Semilla aleatoria para random()
+}
+
+void loop() {
+  // Apagar todos los ledes
+  for (int i = 0; i < numPins; i++) {
+    pinMode(pins[i], INPUT);
+  }
+
+  // Seleccionar led aleatorio
+  int led = random(0, ${ledCount});
+  
+  // Encender el led seleccionado
+  setLed(led);
+  
+  delay(${frequency}); // Esperar
+}
+
+void setLed(int ledIndex) {
+  // Calcular qué pines usar para este led
+  int anodePin = ledIndex / (numPins - 1);
+  int cathodePin = ledIndex % (numPins - 1);
+  
+  if (cathodePin >= anodePin) {
+    cathodePin++; // Saltar el pin del ánodo
+  }
+  
+  // Configurar pines para encender el led
+  for (int i = 0; i < numPins; i++) {
+    if (i == anodePin) {
+      pinMode(pins[i], OUTPUT);
+      digitalWrite(pins[i], HIGH);
+    } else if (i == cathodePin) {
+      pinMode(pins[i], OUTPUT);
+      digitalWrite(pins[i], LOW);
+    } else {
+      pinMode(pins[i], INPUT);
+    }
+  }
+}`;
+
+                arduinoCode.textContent = code;
+            }
+            
+            // Ajustar el tamaño del panel cuando cambia el tamaño de la ventana
+            window.addEventListener('resize', function() {
+                createLedPanel();
+            });
+        });
+    </script>
+</body>
+</html>
