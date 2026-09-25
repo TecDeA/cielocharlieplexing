@@ -3,8 +3,9 @@
     "short_name": "Charlieplexing",
     "description": "Simulador de control de ledes con técnica de charlieplexing y generador de código Arduino",
     "lang": "es",
-    "start_url": "./index.html",
-    "scope": "./",
+    "start_url": "/cielocharlieplexing/index.html",
+    "scope": "/cielocharlieplexing/",
+	"id": "/cielocharlieplexing/"
     "display": "standalone",
     "orientation": "any",
     "background_color": "#1a2a6c",
