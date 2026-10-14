@@ -1090,8 +1090,14 @@ void setLed(int ledIndex) {
 
     <script>
         // ------------------------------------------------------------------
-        // Chip dinámico de versión: consulta la versión al Service Worker.
-        // El SW responde mediante un MessageChannel para garantizar la entrega.
+        // Chip dinámico de versión.
+        // Estrategia:
+        //   1) Preguntar al Service Worker activo (vía MessageChannel).
+        //   2) Si no responde en 4 s, hacer fetch('sw.js') y parsear la
+        //      constante VERSION directamente del código fuente.
+        //   3) Si ambos fallan, mostrar "v?".
+        // Así el chip siempre refleja la versión real, incluso durante
+        // actualizaciones del SW o si el SW está en estado transitional.
         // ------------------------------------------------------------------
         function setChipState(state, label) {
             var chip = document.getElementById('versionChip');
@@ -1101,30 +1107,107 @@ void setLed(int ledIndex) {
             if (typeof label === 'string') chip.textContent = label;
         }
         
-        function requestVersionFromSW(worker) {
-            if (!worker) {
+        function normalizeVersion(v) {
+            v = String(v == null ? '' : v).trim();
+            if (!v) return '';
+            // Asegura el prefijo "v" minúsculo sin duplicar
+            v = v.replace(/^v+/i, '');
+            return 'v' + v;
+        }
+        
+        function applyVersion(version) {
+            var normalized = normalizeVersion(version);
+            if (normalized) {
+                setChipState('is-loaded', normalized);
+            } else {
                 setChipState('is-error', 'v?');
+            }
+        }
+        
+        // Pide la versión a un worker concreto con timeout.
+        function askWorker(worker, callback) {
+            if (!worker || typeof worker.postMessage !== 'function') {
+                callback(null);
                 return;
             }
+            var settled = false;
             var channel = new MessageChannel();
             var timeoutId = setTimeout(function() {
-                setChipState('is-error', 'v?');
-            }, 3000);
+                if (settled) return;
+                settled = true;
+                channel.port1.onmessage = null;
+                callback(null);
+            }, 4000);
             channel.port1.onmessage = function(event) {
+                if (settled) return;
+                settled = true;
                 clearTimeout(timeoutId);
-                if (event.data && event.data.type === 'VERSION' && event.data.version) {
-                    var v = String(event.data.version).replace(/^v/i, '');
-                    setChipState('is-loaded', 'v' + v);
+                var data = event && event.data;
+                if (data && data.type === 'VERSION' && data.version) {
+                    callback(data.version);
                 } else {
-                    setChipState('is-error', 'v?');
+                    callback(null);
                 }
             };
             try {
                 worker.postMessage({ type: 'GET_VERSION' }, [channel.port2]);
             } catch (err) {
+                if (settled) return;
+                settled = true;
                 clearTimeout(timeoutId);
-                setChipState('is-error', 'v?');
+                callback(null);
             }
+        }
+        
+        // Fallback: leer sw.js de la red y extraer la constante VERSION.
+        // El SW no cachea sw.js (ver fetch handler), así que siempre llega
+        // la versión fresca del servidor.
+        function fetchVersionFromFile(callback) {
+            var url = 'sw.js?v=' + Date.now();
+            fetch(url, { cache: 'no-cache' })
+                .then(function(resp) {
+                    if (!resp || !resp.ok) throw new Error('HTTP ' + (resp && resp.status));
+                    return resp.text();
+                })
+                .then(function(text) {
+                    // Busca: const VERSION = 'v2.3';  (comillas simples o dobles)
+                    var m = text.match(/VERSION\s*=\s*(['"])([^'"]+)\1/);
+                    if (m && m[2]) {
+                        callback(m[2]);
+                    } else {
+                        callback(null);
+                    }
+                })
+                .catch(function() {
+                    callback(null);
+                });
+        }
+        
+        // Orquestador: intenta primero el SW, luego el fetch del archivo.
+        function resolveVersion() {
+            setChipState('is-loading', 'v…');
+            
+            if (!('serviceWorker' in navigator)) {
+                // Sin SW: ir directamente al fallback
+                fetchVersionFromFile(function(v) { applyVersion(v); });
+                return;
+            }
+            
+            navigator.serviceWorker.ready
+                .then(function(registration) {
+                    var worker = registration.active || navigator.serviceWorker.controller;
+                    askWorker(worker, function(version) {
+                        if (version) {
+                            applyVersion(version);
+                        } else {
+                            // El SW no responde: leer el archivo directamente
+                            fetchVersionFromFile(function(v) { applyVersion(v); });
+                        }
+                    });
+                })
+                .catch(function() {
+                    fetchVersionFromFile(function(v) { applyVersion(v); });
+                });
         }
         
         // Registro del Service Worker para habilitar la PWA (offline e instalación)
@@ -1133,25 +1216,45 @@ void setLed(int ledIndex) {
                 navigator.serviceWorker.register('sw.js')
                     .then(function(registration) {
                         console.log('Service Worker registrado con éxito:', registration.scope);
+                        
+                        // Detectar nuevo SW instalándose en segundo plano
+                        registration.addEventListener('updatefound', function() {
+                            var newWorker = registration.installing;
+                            if (!newWorker) return;
+                            newWorker.addEventListener('statechange', function() {
+                                // Cuando el nuevo SW pasa a "activated", recargar el chip
+                                if (newWorker.state === 'activated') {
+                                    resolveVersion();
+                                }
+                            });
+                        });
+                        
                         return navigator.serviceWorker.ready;
                     })
-                    .then(function(registration) {
-                        requestVersionFromSW(registration.active);
+                    .then(function() {
+                        resolveVersion();
                     })
                     .catch(function(error) {
                         console.log('Error al registrar el Service Worker:', error);
-                        setChipState('is-error', 'v?');
+                        // Aún así intentar leer la versión del archivo
+                        fetchVersionFromFile(function(v) { applyVersion(v); });
                     });
                 
-                // Si el SW se actualiza en segundo plano, refrescar el chip
+                // Si el SW controlador cambia (skipWaiting), refrescar el chip
+                var lastControllerChange = 0;
                 navigator.serviceWorker.addEventListener('controllerchange', function() {
-                    requestVersionFromSW(navigator.serviceWorker.controller);
+                    // Evitar disparos duplicados en breves intervalos
+                    var now = Date.now();
+                    if (now - lastControllerChange < 500) return;
+                    lastControllerChange = now;
+                    // Pequeño retardo para que el nuevo SW esté listo para responder
+                    setTimeout(resolveVersion, 100);
                 });
             });
         } else {
-            // Navegador sin soporte para SW: el chip refleja el estado
+            // Navegador sin soporte para SW: usar el fallback del archivo
             window.addEventListener('DOMContentLoaded', function() {
-                setChipState('is-error', 'v?');
+                fetchVersionFromFile(function(v) { applyVersion(v); });
             });
         }
     </script>
