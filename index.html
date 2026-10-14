@@ -400,12 +400,88 @@
                 font-size: 1rem;
             }
         }
+        .title-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        
+        .title-row h1 {
+            margin: 0;
+        }
+        
+        .version-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 999px;
+            background: rgba(52, 152, 219, 0.15);
+            border: 1px solid rgba(52, 152, 219, 0.55);
+            color: #5dade2;
+            font-size: 0.85rem;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            user-select: none;
+        }
+        
+        .version-chip::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #2ecc71;
+            box-shadow: 0 0 6px rgba(46, 204, 113, 0.8);
+            animation: chip-pulse 2s ease-in-out infinite;
+        }
+        
+        .version-chip.is-loaded {
+            transform: scale(1);
+            opacity: 1;
+        }
+        
+        .version-chip.is-loading {
+            opacity: 0.7;
+        }
+        
+        .version-chip.is-error {
+            background: rgba(231, 76, 60, 0.15);
+            border-color: rgba(231, 76, 60, 0.55);
+            color: #e74c3c;
+        }
+        
+        .version-chip.is-error::before {
+            background: #e74c3c;
+            box-shadow: 0 0 6px rgba(231, 76, 60, 0.8);
+            animation: none;
+        }
+        
+        @keyframes chip-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.55; transform: scale(0.8); }
+        }
+        
+        @media (max-width: 600px) {
+            h1 { font-size: 1.8rem; }
+            .version-chip { font-size: 0.75rem; padding: 3px 10px; }
+        }
+        
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>Simulador de Charlieplexing para Arduino</h1>
+            <div class="title-row">
+                <h1>Simulador de Charlieplexing para Arduino</h1>
+                <span class="version-chip is-loading" id="versionChip"
+                      title="Versión de la aplicación obtenida del Service Worker">v…</span>
+            </div>
             <p>Control de ledes con técnica de charlieplexing</p>
         </header>
         
@@ -1013,16 +1089,69 @@ void setLed(int ledIndex) {
     </script>
 
     <script>
+        // ------------------------------------------------------------------
+        // Chip dinámico de versión: consulta la versión al Service Worker.
+        // El SW responde mediante un MessageChannel para garantizar la entrega.
+        // ------------------------------------------------------------------
+        function setChipState(state, label) {
+            var chip = document.getElementById('versionChip');
+            if (!chip) return;
+            chip.classList.remove('is-loading', 'is-error', 'is-loaded');
+            if (state) chip.classList.add(state);
+            if (typeof label === 'string') chip.textContent = label;
+        }
+        
+        function requestVersionFromSW(worker) {
+            if (!worker) {
+                setChipState('is-error', 'v?');
+                return;
+            }
+            var channel = new MessageChannel();
+            var timeoutId = setTimeout(function() {
+                setChipState('is-error', 'v?');
+            }, 3000);
+            channel.port1.onmessage = function(event) {
+                clearTimeout(timeoutId);
+                if (event.data && event.data.type === 'VERSION' && event.data.version) {
+                    var v = String(event.data.version).replace(/^v/i, '');
+                    setChipState('is-loaded', 'v' + v);
+                } else {
+                    setChipState('is-error', 'v?');
+                }
+            };
+            try {
+                worker.postMessage({ type: 'GET_VERSION' }, [channel.port2]);
+            } catch (err) {
+                clearTimeout(timeoutId);
+                setChipState('is-error', 'v?');
+            }
+        }
+        
         // Registro del Service Worker para habilitar la PWA (offline e instalación)
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
                 navigator.serviceWorker.register('sw.js')
                     .then(function(registration) {
                         console.log('Service Worker registrado con éxito:', registration.scope);
+                        return navigator.serviceWorker.ready;
+                    })
+                    .then(function(registration) {
+                        requestVersionFromSW(registration.active);
                     })
                     .catch(function(error) {
                         console.log('Error al registrar el Service Worker:', error);
+                        setChipState('is-error', 'v?');
                     });
+                
+                // Si el SW se actualiza en segundo plano, refrescar el chip
+                navigator.serviceWorker.addEventListener('controllerchange', function() {
+                    requestVersionFromSW(navigator.serviceWorker.controller);
+                });
+            });
+        } else {
+            // Navegador sin soporte para SW: el chip refleja el estado
+            window.addEventListener('DOMContentLoaded', function() {
+                setChipState('is-error', 'v?');
             });
         }
     </script>
