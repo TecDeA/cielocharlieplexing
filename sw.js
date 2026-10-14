@@ -1,5 +1,9 @@
 /* Service Worker - Simulador de Charlieplexing */
-const CACHE_NAME = 'charlieplexing-v3';
+
+// Versión de la aplicación: fuente única de verdad.
+// Cualquier cambio aquí se refleja automáticamente en el chip del título.
+const VERSION = 'v2.3';
+const CACHE_NAME = `charlieplexing-${VERSION}`;
 const ASSETS = [
     './',
     './index.html',
@@ -32,6 +36,19 @@ self.addEventListener('activate', (event) => {
             ).then(() => self.clients.claim())
         )
     );
+});
+
+// Comunicación con el cliente: permite consultar la versión dinámicamente
+self.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'GET_VERSION') {
+        // Responde por el mismo canal (MessageChannel) para garantizar la entrega
+        const reply = { type: 'VERSION', version: VERSION };
+        if (event.ports && event.ports[0]) {
+            event.ports[0].postMessage(reply);
+        } else if (event.source) {
+            event.source.postMessage(reply);
+        }
+    }
 });
 
 // Estrategia cache-first con actualización en segundo plano
