@@ -2,7 +2,7 @@
 
 // Versión de la aplicación: fuente única de verdad.
 // Cualquier cambio aquí se refleja automáticamente en el chip del título.
-const VERSION = 'v2.3';
+const VERSION = 'v2.4';
 const CACHE_NAME = `charlieplexing-${VERSION}`;
 const ASSETS = [
     './',
